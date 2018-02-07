@@ -27,6 +27,62 @@ JSON;
 	}
 
 
+	public function getMyClosedOrders($code){
+		$query = <<<'JSON'
+			query myClosedOrders($marketCode: ID!, $page: Int) {
+			  orders(marketCode: $marketCode, onlyClosed: true, limit: null, page: $page) {
+			    totalCount
+			    hasNextPage
+			    page
+			    items {
+			      _id
+			      sell
+			      type
+			      amount
+			      amountToHold
+			      secondaryAmount
+			      filled
+			      closedAt
+			      secondaryFilled
+			      limitPrice
+			      createdAt
+			      activatedAt
+			      isStop
+			      status
+			      stopPriceUp
+			      stopPriceDown
+			      market {
+			        name
+			        code
+			        mainCurrency {
+			          code
+			          format
+			          longFormat
+			          units
+			          __typename
+			        }
+			        secondaryCurrency {
+			          code
+			          format
+			          longFormat
+			          units
+			          __typename
+			        }
+			        __typename
+			      }
+			      __typename
+			    }
+			    __typename
+			  }
+			}
+JSON;
+		$variables = <<<JSON
+				{ "marketCode": "{$code}", "page": 1 }
+JSON;
+		$this->json= json_encode(['query' => $query, 'variables' => $variables]);	
+	}
+
+
 	public function getMarketOrderBook($code){
 		$query = <<<'JSON'
 				query  getmarketOrderBook($code: ID!){ 
