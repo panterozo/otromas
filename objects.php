@@ -51,6 +51,13 @@ JSON;
 			      status
 			      stopPriceUp
 			      stopPriceDown
+						trades{     
+							_id      
+							amount
+							price      
+							totalCost      
+							date    
+						} 
 			      market {
 			        name
 			        code

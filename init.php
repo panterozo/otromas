@@ -2,6 +2,7 @@
 include ("objects.php");
 
 $obj = new Object();
+$calculo=0.00000001;
 #$obj->getMarketCurrentStats("CHACLP");
 $obj->getMyClosedOrders("CHACLP");/*
 		207769 
@@ -13,96 +14,57 @@ $obj->getMyClosedOrders("CHACLP");/*
  */
 $obj->getMyClosedOrders("BTCCLP");/*96410.86690716 */
 #$obj->getMyClosedOrders("ETHCLP");/*155782.6996*/
-#$obj->getMyClosedOrders("XRPCLP");/*14260*//*Venta Mercado*/
+#$obj->getMyClosedOrders("XRPCLP");/*14260*//*Venta Mercado*/$calculo=0.000001;
 #$obj->getMyClosedOrders("LTCCLP");/*5680.024*/
 #$obj->getMyClosedOrders("BCHCLP");/*4000*/
 #$obj->getMyClosedOrders("DASHCLP");/*3900*/
 
+/*$apiKey = "";
+$secretKey = "";*/
 
 $response = userAgent($apiKey, $secretKey, $obj->json);
 if(strcmp($response,"-1") !=0){
   /*Es distinto de menos 1, por tanto, no ocurrió nada en el UserAgent (OK)*/
-	$result = json_decode($response, true);
-
-	$totalOperaciones=$result["data"]["orders"]["totalCount"];
-	if($result["data"]["orders"]["totalCount"]>50){
-		/*Trae como tope 50*/
-		#$totalOperaciones=22;
-		//$totalOperaciones=50;
-	}
 	print_r("<pre>".$response."</pre>");
-
-	foreach($result["data"]["orders"] as $keys=>$value){
-		if($keys=="totalCount" and $value>0){
-			echo "=== $keys=>$value<br>";
-		
-		}
-		if($keys=="items"){
-			foreach($value[0] as $keyItem=>$valueItem){
- 				if($keyItem!="market"){
-					#echo "$keyItem=>$valueItem<br>";
-				}
-			}
-		
-		}
-
-		//echo $keys."-->".$value;
-		/*foreach($array as $data){
-			echo var_dump($data)."<br>";
-			//echo $data;
-	}	*/  
-	}
-
+	$result = json_decode($response, true);
 
 	$sumaCompra=0;
 	$sumaVenta=0;
-	for($i=0; $i<$totalOperaciones; $i++){
-		echo "I: $i: <br>";
-		if($result["data"]["orders"]["items"][$i]["type"]=="limit"
-					and $result["data"]["orders"]["items"][$i]["status"]=="closed"){
-			$amount = $result["data"]["orders"]["items"][$i]["amount"];		
-			$sell = $result["data"]["orders"]["items"][$i]["sell"];
-			#$newValue = sprintf("0.%08d", $amount);
-			$newValue = $amount*0.00000001;
-			$limitPrice = $result["data"]["orders"]["items"][$i]["limitPrice"];
 
-			$multiplicaMontoValor = $limitPrice*$newValue;
-			#echo $multiplicaMontoValor;
-			if($sell == 1){
-				/*Venta*/
-				echo "Venta";
-				$sumaVenta=$sumaVenta+$multiplicaMontoValor;		
-			}else{
-				$sumaCompra=$sumaCompra+$multiplicaMontoValor;		
+	$sumaVentaMarket=0;
+	$sumaCompraMarket=0;
+	for($i=0; $i<count($result["data"]["orders"]["items"]); $i++){
+		#echo "I: $i: <br>";
+		if($result["data"]["orders"]["items"][$i]["status"]=="closed"){
+			#echo " ".$result["data"]["orders"]["items"][$i]["_id"]." <br>";
+			if($result["data"]["orders"]["items"][$i]["type"]=="limit"){
+				$sell = $result["data"]["orders"]["items"][$i]["sell"];
+				list($totalCompra, $totalVenta,$coin,$price) = getAmountSellBuy($result["data"]["orders"]["items"][$i]["trades"],$sell);
+				$milSeconds = $result["data"]["orders"]["items"][$i]["createdAt"] / 1000;
+				#echo date('d/m/Y H:i:s',$milSeconds);	echo " ====> ".$result["data"]["orders"]["items"][$i]["_id"]."<br>";
+			}else if($result["data"]["orders"]["items"][$i]["type"]=="market"){
+				$sell = $result["data"]["orders"]["items"][$i]["sell"];
+				list($totalCompra, $totalVenta,$coin,$price) = getAmountSellBuy($result["data"]["orders"]["items"][$i]["trades"],$sell);
 			}
-			echo $result["data"]["orders"]["items"][$i]["_id"]."---";
-					
-			#echo "LimitPrice: $limitPrice - Monto: ".$amount."=> Transformado".$newValue."<br>";
-			echo "LimitPrice: $limitPrice x Transformado: ".$newValue." = $multiplicaMontoValor<br>";
-		}else if($result["data"]["orders"]["items"][$i]["type"]=="market"
-					and $result["data"]["orders"]["items"][$i]["status"]=="closed"){
-			$amount = $result["data"]["orders"]["items"][$i]["secondaryAmount"];
-			$sumaCompra=$sumaCompra+$amount;
-			$sell = $result["data"]["orders"]["items"][$i]["sell"];
-			if($sell == 1){
-				/*Venta*/
-				echo "Venta a precio mercado: $sell|$amount<br>";
-			}else{
-				echo "Compra a precio mercado: $amount<br>";
-			}				
+			#echo " => Compra($totalCompra) - Venta($totalVenta)<br>";
+			echo "$totalCompra;$totalVenta;".str_replace(".",",",$coin).";$price<br>";
+			$sumaCompra=$sumaCompra+$totalCompra;
+			$sumaVenta=$sumaVenta+$totalVenta;
 		}
-/*		foreach($result["data"]["orders"]["items"][$i] as $keyItem=>$valueItem){
- 			if($keyItem!="market"){
-				echo "$keyItem=>$valueItem<br>";
-			}
-}*/
-	
 	}
+
 
 	echo "<br>$sumaCompra - $sumaVenta";
 	$resta = $sumaCompra - $sumaVenta;
-	echo "<br> --> $resta <br>";
 
+	echo "<br>$sumaCompraMarket - $sumaVentaMarket";
+	$restaMarket = $sumaCompraMarket - $sumaVentaMarket;
+
+	echo "<br> -->Limit: $resta <br>";
+	echo "<br> -->Market: $restaMarket <br>";
+
+
+	echo "<br>SUMA TOTAL: ".($resta+$restaMarket);
 	/*foreach ($var['data'] as $result) {
 		echo $result."<BR>";
     
@@ -115,6 +77,41 @@ if(strcmp($response,"-1") !=0){
 }
 exit;
 
+
+
+function getAmountSellBuy($trades,$sell){
+	$sumaVenta=0;
+	$sumaCompra=0;
+	$coin=0;
+	$price=0;
+	$averageCounter=1;
+	foreach($trades as $array){							
+		foreach($array as $itemTrades=>$valuesTrades){
+			#echo "==========> $itemTrades => $valuesTrades <br>";
+			if($itemTrades=="totalCost"){
+				if($sell == 1){
+					/*Venta*/
+					$sumaVenta=$sumaVenta+$valuesTrades;
+				}else{
+					$sumaCompra=$sumaCompra+$valuesTrades;
+				}				
+			}
+			if($itemTrades=="amount"){
+				$coin=$coin+$valuesTrades*0.00000001;
+			}
+			if($itemTrades=="price"){
+				if($averageCounter==1){
+					$price=$valuesTrades;
+					$averageCounter++;
+				}else{
+					$price=round(($valuesTrades+$price)/$averageCounter);
+				}
+				//$price=$price+$valuesTrades;
+			}
+		}
+	}
+	return array($sumaCompra, $sumaVenta, $coin, $price);
+}
 
 function userAgent($apiKey, $secretKey, $json ){
 	try{
